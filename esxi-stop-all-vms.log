@@ -1,0 +1,5 @@
+Mon Jan 12 16:07:44 EST 2026: Shut down virtual machines on ESXi host vmware, FreeNAS server truenas
+VMS_TO_START=Orion Aurora1
+VMS_TO_STOP=Aurora1 Orion
+VMS_TO_START=Orion Aurora1
+VMS_TO_STOP=Aurora1 Orion

@@ -8,53 +8,20 @@
 #
 ################################################################################
 
-# Check for invocation errors
 
-if [ $# -ne 3 ]; then
-  echo "$0: error! Not enough arguments"
-  echo "Usage is: $0 user_id esxi_host_name datastore_name"
-  exit 1
-fi
+export SCRIPT_DIR=$(/usr/bin/dirname "$0")
+. "${SCRIPT_DIR}/host.config.sh"
 
-. /mnt/tank/systems/scripts/esxi.config
+is_active=0
+waitdelay=15
 
-# Gather command-line arguments for user ID, hostname, and datastore name:
+#set -x
+echo VMS_TO_START=$VMS_TO_START
+VMS_TO_STOP=$(printf '%s\n' ${VMS_TO_START} |/usr/bin/tac)
+echo VMS_TO_STOP=$VMS_TO_STOP
 
-esxiuser=$1
-esxihost=$2
-# ESXi datastore must be uppercase:
-#esxidatastore=$(echo "$3" | tr '[:lower:]' '[:upper:]')
-#November 2020: no longer seems to be the case, just assign the user's datastore name 'as is':
-esxidatastore=$3
-
-################################################################################
-#
-# Action begins here
-#
-################################################################################
-
-echo "$(date): $0 ${esxiuser}@${esxihost} datastore=${esxidatastore} (max wait time=${maxwait}s"
-echo "Full list of VM guests on this server:"
-ssh "${esxiuser}"@"${esxihost}" vim-cmd vmsvc/getallvms
-
-echo "VM guests on datastore ${esxidatastore}:"
-ssh "${esxiuser}"@"${esxihost}" vim-cmd vmsvc/getallvms | grep "\[${esxidatastore}\]"
-
-# Get server IDs for all VMs stored on the indicated datastore. These IDs change between
-# boots of the ESXi server, so we have to work from a fresh list every time. We are only
-# interested in the guests stored in '[DATASTORE]' and the brackets are important.
-
-guestvmids=$(ssh "${esxiuser}"@"${esxihost}" vim-cmd vmsvc/getallvms | grep "\[${esxidatastore}\]" | awk '$1 ~ /^[0-9]+$/ {print $1}')
-
-# Iterate over the list of guest VMs, shutting down any that are powered up
-
-for guestvmid in $guestvmids; do
-  totalvms=$((totalvms + 1))
-  shutdown_guest_vm "$guestvmid"
+for vmName in $VMS_TO_STOP; do
+  echo "$(/usr/bin/date): Processing vm: $vmName"
+	${SCRIPT_DIR}/esxi-stop-vm.sh ${esxiuser} ${esxihost} ${vmName}
+	
 done
-
-echo "Found ${totalvms} virtual machine guests on ${esxihost} datastore ${esxidatastore}"
-echo "   Total shut down: ${totalvmsshutdown}" 
-echo "Total powered down: ${totalvmspowereddown}" 
-echo "$(date): $0 completed"
-

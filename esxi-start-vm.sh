@@ -23,23 +23,36 @@ esxiuser=$1
 esxihost=$2
 vmxname=$3
 
+#echo All VMs
+#/usr/bin/ssh ${sshIdentityOpt} "${esxiuser}"@"${esxihost}" vim-cmd vmsvc/getallvms
+#echo
+
 # Get server ID for the VM with matching vmx file:
 
-guestvmids=$(ssh "${esxiuser}"@"${esxihost}" vim-cmd vmsvc/getallvms | grep "/${vmxname}.vmx" | awk '$1 ~ /^[0-9]+$/ {print $1}')
+guestvmids=$(/usr/bin/ssh ${sshIdentityOpt} "${esxiuser}"@"${esxihost}" vim-cmd vmsvc/getallvms | /usr/bin/grep "/${vmxname}.vmx" | /usr/bin/awk '$1 ~ /^[0-9]+$/ {print $1}')
 
-echo "$0: ${esxiuser}@${esxihost} vmx=${vmxname}.vmx"
+if [ "${guestvmids}" != "" ]; then
+	echo "Found the following VMs to start: ${guestvmids}"
+else
+	echo "Failed to find vm: ${vmxname}.vmx"
+	echo "All VMs"
+	/usr/bin/ssh ${sshIdentityOpt} "${esxiuser}"@"${esxihost}" vim-cmd vmsvc/getallvms
+	exit 1
+fi
 
 for guestvmid in $guestvmids; do
-  ssh "${esxiuser}"@"${esxihost}" vim-cmd vmsvc/power.getstate ${guestvmid} | grep -i "Powered on" > /dev/null 2<&1
+	echo "processing Guest ${guestvmid}"
+  /usr/bin/ssh ${sshIdentityOpt} "${esxiuser}"@"${esxihost}" vim-cmd vmsvc/power.getstate ${guestvmid} | /usr/bin/grep -i "Powered on" > /dev/null 2<&1
   l_status=$?
 
-#  printf "VM [%s] status=[%s]\n" "${guestvmid}" "${l_status}"
+  printf "VM [%s] status=[%s]\n" "${guestvmid}" "${l_status}"
 
   if [ $l_status -eq 0 ]; then
-    echo "Guest VM ID $guestvmid already powered up..."
+    echo "Guest VM ID $guestvmid already powered on..."
+  	exit 2
   else
-    echo "Powering up guest VM ID $guestvmid..."
-    ssh "${esxiuser}"@"${esxihost}" vim-cmd vmsvc/power.on ${guestvmid} > /dev/null 2<&1
+    echo "Powering on guest VM ID $guestvmid..."
+    /usr/bin/ssh ${sshIdentityOpt} "${esxiuser}"@"${esxihost}" vim-cmd vmsvc/power.on ${guestvmid} > /dev/null 2<&1
   fi
 done
 
